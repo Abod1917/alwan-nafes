@@ -1,5 +1,7 @@
 -- نافس باجتهاد — قاعدة البيانات (Supabase / Postgres)
 -- كل الوصول يمر عبر دوال RPC (security definer) تتحقق من رمز الجلسة؛ الجداول مغلقة تمامًا أمام المفتاح العام.
+-- حساب الإدارة يُنشأ يدويًا (خارج هذا الملف):
+--   insert into public.accounts(username, pin_hash, role, name) values ('ADMIN', extensions.crypt('<PIN>', extensions.gen_salt('bf')), 'admin', 'إدارة أكاديمية ألوان');
 
 create extension if not exists pgcrypto with schema extensions;
 
@@ -25,7 +27,8 @@ create table public.accounts (
   failed int not null default 0,
   locked_until timestamptz,
   created_at timestamptz not null default now(),
-  last_login timestamptz
+  last_login timestamptz,
+  deleted boolean not null default false   -- حذف ناعم
 );
 create index accounts_family_idx on public.accounts(family_id);
 
@@ -44,7 +47,8 @@ create table public.records (
   student_id text,
   kind text not null,
   data jsonb not null,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  deleted boolean not null default false   -- حذف ناعم: يُخفى ولا يُمسح
 );
 create index records_family_idx on public.records(family_id);
 create index records_student_idx on public.records(student_id);
@@ -63,8 +67,7 @@ declare a public.accounts;
 begin
   select ac.* into a from public.sessions s join public.accounts ac on ac.id = s.account_id
    where s.token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex') and s.expires_at > now();
-  if a.id is null then raise exception 'NAFES_AUTH'; end if;
-  if not a.active then raise exception 'NAFES_AUTH'; end if;
+  if a.id is null or not a.active or a.deleted then raise exception 'NAFES_AUTH'; end if;
   return a;
 end $$;
 
@@ -166,7 +169,7 @@ create or replace function public.nafes_login(p_username text, p_pin text) retur
 language plpgsql security definer set search_path = public, extensions as $$
 declare a public.accounts; bad constant text := 'اسم المستخدم أو الرقم السري غير صحيح';
 begin
-  select * into a from public.accounts where username = upper(trim(coalesce(p_username, '')));
+  select * into a from public.accounts where username = upper(trim(coalesce(p_username, ''))) and not deleted;
   if a.id is null then return jsonb_build_object('error', bad); end if;
   if a.locked_until is not null and a.locked_until > now() then
     return jsonb_build_object('error', 'محاولات كثيرة، حاول بعد ' || ceil(extract(epoch from a.locked_until - now()) / 60) || ' دقيقة');
@@ -185,25 +188,25 @@ end $$;
 
 create or replace function public.nafes_logout(p_token text) returns void
 language sql security definer set search_path = public, extensions as $$
-  delete from public.sessions where token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex')
+  update public.sessions set expires_at = now() where token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex')
 $$;
 
 create or replace function public.nafes_load(p_token text) returns jsonb
 language plpgsql security definer set search_path = public, extensions as $$
 declare a public.accounts := public._nafes_me(p_token); recs jsonb; glob jsonb; mem jsonb;
 begin
-  select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'data', data)), '[]') into glob from public.records where family_id is null;
+  select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'data', data)), '[]') into glob from public.records where family_id is null and not deleted;
   if a.role = 'admin' then
-    select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'data', data)), '[]') into recs from public.records where family_id is not null;
-    select coalesce(jsonb_agg(public._nafes_pub(ac) order by ac.created_at desc), '[]') into mem from public.accounts ac where ac.role <> 'admin';
+    select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'data', data)), '[]') into recs from public.records where family_id is not null and not deleted;
+    select coalesce(jsonb_agg(public._nafes_pub(ac) order by ac.created_at desc), '[]') into mem from public.accounts ac where ac.role <> 'admin' and not ac.deleted;
   elsif a.role = 'parent' then
-    select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'data', data)), '[]') into recs from public.records where family_id = a.family_id;
-    select coalesce(jsonb_agg(public._nafes_pub(ac)), '[]') into mem from public.accounts ac where ac.family_id = a.family_id;
+    select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'data', data)), '[]') into recs from public.records where family_id = a.family_id and not deleted;
+    select coalesce(jsonb_agg(public._nafes_pub(ac)), '[]') into mem from public.accounts ac where ac.family_id = a.family_id and not ac.deleted;
   else
     select coalesce(jsonb_agg(jsonb_build_object('kind', kind, 'data', data)), '[]') into recs
-      from public.records where family_id = a.family_id and student_id = a.student_id;
+      from public.records where family_id = a.family_id and student_id = a.student_id and not deleted;
     select coalesce(jsonb_agg(public._nafes_pub(ac)), '[]') into mem from public.accounts ac
-      where ac.family_id = a.family_id and (ac.role = 'parent' or ac.id = a.id);
+      where ac.family_id = a.family_id and not ac.deleted and (ac.role = 'parent' or ac.id = a.id);
   end if;
   return jsonb_build_object('me', public._nafes_pub(a), 'records', recs, 'global', glob, 'accounts', mem);
 end $$;
@@ -219,7 +222,7 @@ begin
     if k in ('challenge', 'content', 'settings') then
       if a.role <> 'admin' then continue; end if;
       insert into public.records(id, family_id, student_id, kind, data) values (rid, null, null, k, d)
-        on conflict (id) do update set data = excluded.data, updated_at = now()
+        on conflict (id) do update set data = excluded.data, deleted = false, updated_at = now()
         where records.family_id is null and records.kind = excluded.kind;
       n := n + 1; continue;
     end if;
@@ -228,35 +231,37 @@ begin
     fam := null;
     if a.role = 'admin' then
       -- الإدارة تعدّل طلابًا موجودين فقط (الإنشاء عبر nafes_admin)
-      select family_id into fam from public.records where id = sid and kind = 'student';
+      select family_id into fam from public.records where id = sid and kind = 'student' and not deleted;
     else
       if a.role = 'student' and sid is distinct from a.student_id then continue; end if;
-      if k <> 'student' and not exists (select 1 from public.records where id = sid and kind = 'student' and family_id = a.family_id) then continue; end if;
+      if k <> 'student' and not exists (select 1 from public.records where id = sid and kind = 'student' and family_id = a.family_id and not deleted) then continue; end if;
       fam := a.family_id;
     end if;
     if fam is null then continue; end if;
     if k = 'student' then d := d || jsonb_build_object('familyId', fam::text); end if;
     insert into public.records(id, family_id, student_id, kind, data) values (rid, fam, sid, k, d)
-      on conflict (id) do update set data = excluded.data, student_id = excluded.student_id, updated_at = now()
+      on conflict (id) do update set data = excluded.data, student_id = excluded.student_id, deleted = false, updated_at = now()
       where records.family_id = excluded.family_id and records.kind = excluded.kind
         and (a.role <> 'student' or records.student_id = a.student_id);
     n := n + 1;
   end loop;
 
+  -- الحذف ناعم: يُخفى السجل ولا يُمسح
   for rid in select value #>> '{}' from jsonb_array_elements(coalesce(p_dels, '[]')) loop
-    if a.role = 'admin' then delete from public.records where id = rid;
-    elsif a.role = 'parent' then delete from public.records where id = rid and family_id = a.family_id;
-    else delete from public.records where id = rid and family_id = a.family_id and student_id = a.student_id and kind <> 'student';
-    end if;
+    update public.records set deleted = true, updated_at = now()
+     where id = rid and (
+       a.role = 'admin'
+       or (a.role = 'parent' and family_id = a.family_id)
+       or (a.role = 'student' and family_id = a.family_id and student_id = a.student_id and kind <> 'student'));
   end loop;
 
   if jsonb_array_length(coalesce(p_dels, '[]')) > 0 and a.role <> 'student' then
-    -- تنظيف: سجلات وحسابات طلاب محذوفين
-    delete from public.records r2 where r2.family_id is not null and r2.kind <> 'student'
+    update public.records r2 set deleted = true where not r2.deleted and r2.family_id is not null and r2.kind <> 'student'
       and (a.role = 'admin' or r2.family_id = a.family_id)
-      and not exists (select 1 from public.records s where s.id = r2.student_id and s.kind = 'student');
-    delete from public.accounts ac where ac.role = 'student' and (a.role = 'admin' or ac.family_id = a.family_id)
-      and not exists (select 1 from public.records s where s.id = ac.student_id and s.kind = 'student');
+      and not exists (select 1 from public.records s where s.id = r2.student_id and s.kind = 'student' and not s.deleted);
+    update public.accounts ac set deleted = true, active = false where not ac.deleted and ac.role = 'student'
+      and (a.role = 'admin' or ac.family_id = a.family_id)
+      and not exists (select 1 from public.records s where s.id = ac.student_id and s.kind = 'student' and not s.deleted);
   end if;
   return jsonb_build_object('ok', true, 'n', n);
 end $$;
@@ -264,18 +269,17 @@ end $$;
 -- ربط ولي الأمر بابن مسجّل عبر رمز الربط (يدمج الأسرتين)
 create or replace function public.nafes_link(p_token text, p_code text) returns jsonb
 language plpgsql security definer set search_path = public, extensions as $$
-declare a public.accounts := public._nafes_me(p_token); old uuid;
+declare a public.accounts := public._nafes_me(p_token); old uuid; nm text;
 begin
   if a.role <> 'parent' then raise exception 'الربط متاح لولي الأمر فقط'; end if;
-  select family_id into old from public.accounts where link_code = upper(trim(coalesce(p_code, ''))) and role = 'student';
+  select family_id, name into old, nm from public.accounts where link_code = upper(trim(coalesce(p_code, ''))) and role = 'student' and not deleted;
   if old is null then raise exception 'رمز الربط غير صحيح'; end if;
-  if old = a.family_id then return jsonb_build_object('ok', true, 'already', true); end if;
+  if old = a.family_id then return jsonb_build_object('ok', true, 'already', true, 'name', nm); end if;
   update public.records set family_id = a.family_id,
     data = case when kind = 'student' then data || jsonb_build_object('familyId', a.family_id::text) else data end
     where family_id = old;
   update public.accounts set family_id = a.family_id where family_id = old;
-  delete from public.families where id = old;
-  return jsonb_build_object('ok', true);
+  return jsonb_build_object('ok', true, 'name', nm);
 end $$;
 
 -- إنشاء حساب دخول لابن أضافه ولي الأمر
@@ -283,9 +287,9 @@ create or replace function public.nafes_child_account(p_token text, p_student te
 language plpgsql security definer set search_path = public, extensions as $$
 declare a public.accounts := public._nafes_me(p_token); st record; c public.accounts;
 begin
-  select * into st from public.records where id = p_student and kind = 'student';
+  select * into st from public.records where id = p_student and kind = 'student' and not deleted;
   if st.id is null or (a.role <> 'admin' and (a.role <> 'parent' or st.family_id <> a.family_id)) then raise exception 'غير مسموح'; end if;
-  if exists (select 1 from public.accounts where student_id = p_student) then raise exception 'لهذا الطالب حساب دخول مسبقًا'; end if;
+  if exists (select 1 from public.accounts where student_id = p_student and not deleted) then raise exception 'لهذا الطالب حساب دخول مسبقًا'; end if;
   c := public._nafes_new_account('student', st.family_id, p_student, st.data->>'name', null, null, p_pin);
   return jsonb_build_object('username', c.username, 'linkCode', c.link_code);
 end $$;
@@ -302,20 +306,22 @@ end $$;
 
 create or replace function public.nafes_admin(p_token text, p_action text, p jsonb) returns jsonb
 language plpgsql security definer set search_path = public, extensions as $$
-declare a public.accounts := public._nafes_me(p_token); v_pin text; fam uuid; c public.accounts;
+declare a public.accounts := public._nafes_me(p_token); v_pin text; fam uuid; c public.accounts; v_id uuid;
 begin
   if a.role <> 'admin' then raise exception 'للإدارة فقط'; end if;
+  v_id := case when coalesce(p->>'id', '') ~ '^[0-9a-f-]{36}$' then (p->>'id')::uuid end;
   if p_action = 'reset_pin' then
     v_pin := lpad(((get_byte(gen_random_bytes(1), 0) * 256 + get_byte(gen_random_bytes(1), 0)) % 9000 + 1000)::text, 4, '0');
-    update public.accounts set pin_hash = crypt(v_pin, gen_salt('bf')), failed = 0, locked_until = null where id = (p->>'id')::uuid and role <> 'admin';
-    delete from public.sessions where account_id = (p->>'id')::uuid;
+    update public.accounts set pin_hash = crypt(v_pin, gen_salt('bf')), failed = 0, locked_until = null where id = v_id and role <> 'admin';
+    update public.sessions set expires_at = now() where account_id = v_id;
     return jsonb_build_object('pin', v_pin);
   elsif p_action = 'toggle' then
-    update public.accounts set active = not active where id = (p->>'id')::uuid and role <> 'admin';
+    update public.accounts set active = not active where id = v_id and role <> 'admin';
   elsif p_action = 'delete_account' then
-    delete from public.accounts where id = (p->>'id')::uuid and role <> 'admin';
+    update public.accounts set deleted = true, active = false where id = v_id and role <> 'admin';
   elsif p_action = 'delete_family' then
-    delete from public.families where id = (p->>'id')::uuid;
+    update public.records set deleted = true where family_id = v_id;
+    update public.accounts set deleted = true, active = false where family_id = v_id and role <> 'admin';
   elsif p_action = 'create_parent' then
     v_pin := lpad(((get_byte(gen_random_bytes(1), 0) * 256 + get_byte(gen_random_bytes(1), 0)) % 9000 + 1000)::text, 4, '0');
     insert into public.families default values returning id into fam;

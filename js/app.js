@@ -1,71 +1,99 @@
-/* نافس باجتهاد — التوجيه، الدخول، الهيكل */
+/* نافس باجتهاد — التوجيه، الجلسة، الهيكل */
 (function () {
-  const N = window.N, E = N.esc, V = N.V, A = N.A;
+  const N = window.N, E = N.esc, V = N.V, A = N.A, OB = N.OB;
   N.session = null;
-  N.persistSession = () => { try { sessionStorage.setItem('nafes_session', JSON.stringify(N.session)); } catch (e) { /* ignore */ } };
-  const restore = () => { try { N.session = JSON.parse(sessionStorage.getItem('nafes_session')); } catch (e) { N.session = null; } };
+  N.persistSession = () => { try { sessionStorage.setItem('nafes_pick', N.session?.studentId || ''); } catch (e) { /* ignore */ } };
 
   const NAV = {
     s: [['dash', '🏠', 'الرئيسية', 'sDash'], ['tasks', '✅', 'المهام', 'tasks'], ['calendar', '📅', 'التقويم', 'calendar'], ['goals', '🎯', 'أهدافي', 'goals'], ['agreement', '🤝', 'اتفاق الهمة', 'agreement'], ['challenges', '🏁', 'التحديات', 'challenges'], ['achievements', '🏆', 'إنجازاتي', 'achievements']],
     p: [['dash', '🏠', 'لوحتي', 'pDash'], ['tasks', '✅', 'المهام', 'tasks'], ['calendar', '📅', 'التقويم', 'calendar'], ['goals', '🎯', 'الأهداف', 'goals'], ['agreement', '🤝', 'اتفاق الهمة', 'agreement'], ['challenges', '🏁', 'التحديات', 'challenges'], ['achievements', '🏆', 'الإنجازات', 'achievements'], ['report', '📊', 'التقرير الأسبوعي', 'report'], ['parenting', '💬', 'معك في التربية', 'parenting']],
-    a: [['overview', '📈', 'نظرة عامة', 'aOverview'], ['families', '👪', 'الأسر والطلاب', 'aFamilies'], ['challenges', '🏁', 'التحديات', 'aChallenges'], ['content', '💬', 'المحتوى', 'aContent'], ['badges', '🏅', 'الأوسمة', 'aBadges'], ['reports', '📊', 'التقارير', 'aReports']],
+    a: [['overview', '📈', 'نظرة عامة', 'aOverview'], ['people', '🗂️', 'المسجلون', 'aPeople'], ['families', '👪', 'الأسر', 'aFamilies'], ['challenges', '🏁', 'التحديات', 'aChallenges'], ['content', '💬', 'المحتوى', 'aContent'], ['badges', '🏅', 'الأوسمة', 'aBadges'], ['reports', '📊', 'التقارير', 'aReports']],
   };
+  const PUBLIC = { welcome: OB.welcome, login: OB.login, 'join/student': OB.joinStudent, 'join/parent': OB.joinParent };
 
   const topbar = () => {
-    const S = N.session, kid = S && S.role !== 'admin' ? N.student(S.studentId) : null;
-    return `<header class="topbar"><a class="brand" href="#/">${N.logo('nafes')}<span class="muted small">من أكاديمية ألوان</span></a><div class="grow"></div>${S ? `<span class="small muted">${S.role === 'admin' ? 'إدارة الأكاديمية' : S.role === 'student' ? E(kid?.name || '') : 'ولي الأمر'}</span>` : ''}<button class="icon-btn" data-act="theme" aria-label="تبديل الوضع الفاتح/الداكن">🌓</button>${S ? `${S.role !== 'admin' ? `<button class="icon-btn" data-act="switch" aria-label="تبديل المستخدم">👥</button>` : ''}<button class="icon-btn" data-act="logout" aria-label="تسجيل الخروج">🚪</button>` : ''}</header>`;
+    const me = N.db?.me;
+    return `<header class="topbar"><a class="brand" href="#/">${N.logo('nafes')}<span class="muted small">من أكاديمية ألوان</span></a><div class="grow"></div>
+      ${me ? `<span id="syncState" class="sync" data-s="ok" title="محفوظ" aria-hidden="true"></span><span class="small muted who-name">${E(me.name)}</span>` : ''}
+      <button class="icon-btn" data-act="theme" aria-label="تبديل الوضع الفاتح/الداكن">🌓</button>
+      ${me ? `<button class="icon-btn" data-act="account" aria-label="حسابي">👤</button><button class="icon-btn" data-act="logout" aria-label="تسجيل الخروج">🚪</button>` : ''}</header>`;
   };
 
-  function loginView() {
-    return `<div class="login-wrap"><div class="card login"><div class="logos">${N.logo('nafes')}${N.logo('alwan')}</div><h1>نافس باجتهاد</h1><p class="muted">منصة أكاديمية ألوان لمتابعة اجتهاد الأبناء</p>
-    <form id="loginForm" style="text-align:start"><label class="f">اسم المستخدم<input name="u" autocomplete="username" dir="ltr" placeholder="NAFES1001" required></label><label class="f">الرقم السري<input name="p" type="password" inputmode="numeric" autocomplete="current-password" dir="ltr" required></label><p id="loginErr" class="chip bad" style="display:none" role="alert"></p><button class="btn" style="width:100%">دخول</button></form>
-    <p class="muted small" style="margin-top:14px">تجربة: <span class="cred">NAFES1001</span> / <span class="cred">4826</span></p></div></div>`;
-  }
-  let fails = 0, lockUntil = 0;
-  function bindLogin() {
-    const f = document.getElementById('loginForm'); if (!f) return;
-    f.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const err = document.getElementById('loginErr'), show = (m) => { err.textContent = m; err.style.display = 'inline-flex'; };
-      if (Date.now() < lockUntil) return show(`محاولات كثيرة، انتظر ${Math.ceil((lockUntil - Date.now()) / 1000)} ثانية`);
-      const r = N.login(f.u.value, f.p.value);
-      if (r.error) { if (++fails >= 5) { lockUntil = Date.now() + 30000; fails = 0; } return show(r.error); }
-      fails = 0;
-      if (r.role === 'admin') N.session = { role: 'admin' }; else { N.session = { role: 'who', familyId: r.familyId }; }
-      N.persistSession(); location.hash = r.role === 'admin' ? '#/a/overview' : '#/who';
-    });
-  }
+  /* بعد الدخول/التسجيل: تحميل البيانات وبناء الخطة المبدئية للطلاب الجدد */
+  N.start = async (target) => {
+    const db = await N.loadRemote(), me = db.me;
+    let pick = null; try { pick = sessionStorage.getItem('nafes_pick'); } catch (e) { /* ignore */ }
+    const kids = N.childrenOf(me.familyId);
+    N.session = { role: me.role, familyId: me.familyId, studentId: me.role === 'student' ? me.studentId : (kids.find((k) => k.id === pick) || kids[0])?.id };
+    if (me.role !== 'admin') {
+      const fresh = db.students.filter((s) => !s.starterDone && (me.role === 'parent' || s.id === me.studentId));
+      if (fresh.length) { fresh.forEach(N.buildStarter); N.save(); await N.flush(); }
+    }
+    location.hash = target || (me.role === 'admin' ? '#/a/overview' : me.role === 'student' ? '#/s/dash' : '#/p/dash');
+    N.render();
+  };
 
-  function whoView() {
-    const kids = N.childrenOf(N.session.familyId);
-    return `<div class="login-wrap"><div class="card login"><h1>من يستخدم المنصة؟</h1><div class="who"><button data-act="asParent"><span class="av">👨‍👩‍👧</span><div><b>ولي الأمر</b><div class="muted small">المتابعة والتقارير</div></div></button>${kids.map((k) => `<button data-act="asStudent" data-id="${k.id}"><span class="av">${k.avatar}</span><div><b>${E(k.name)}</b><div class="muted small">الصف ${E(k.grade)}</div></div></button>`).join('')}</div></div></div>`;
-  }
-  A.asParent = () => { const k = N.childrenOf(N.session.familyId)[0]; N.session = { role: 'parent', familyId: N.session.familyId, studentId: k?.id }; N.persistSession(); location.hash = '#/p/dash'; };
-  A.asStudent = ({ id }) => { N.session = { role: 'student', familyId: N.session.familyId, studentId: id }; N.persistSession(); location.hash = '#/s/dash'; };
-  A.switch = () => { N.session = { role: 'who', familyId: N.session.familyId }; N.persistSession(); location.hash = '#/who'; };
-
+  let booting = false;
   N.render = () => {
-    const root = document.getElementById('app'), S = N.session;
-    const parts = location.hash.replace(/^#\/?/, '').split('/'), area = parts[0], page = parts[1];
-    const go = (h) => { if (location.hash !== h) location.hash = h; };
-    if (!S) { if (area !== 'login') return go('#/login'); root.innerHTML = topbar() + loginView(); return bindLogin(); }
-    if (S.role === 'who') { if (area !== 'who') return go('#/who'); root.innerHTML = topbar() + whoView(); return; }
-    const key = S.role === 'admin' ? 'a' : S.role === 'student' ? 's' : 'p';
+    const root = document.getElementById('app');
+    const path = location.hash.replace(/^#\/?/, ''), [area, page] = path.split('/');
+    const go = (h) => { if (location.hash !== h) location.hash = h; else N.render(); };
+    if (!N.token()) {
+      const view = PUBLIC[path];
+      if (!view) return go('#/welcome');
+      root.innerHTML = topbar() + view();
+      return;
+    }
+    if (!N.db) {
+      root.innerHTML = topbar() + `<div class="login-wrap"><div class="empty"><div class="spinner" aria-hidden="true"></div>جارٍ التحميل…</div></div>`;
+      if (!booting) { booting = true; N.start(location.hash).catch((e) => { root.innerHTML = topbar() + `<div class="login-wrap"><div class="card login"><p>${E(e.message)}</p><button class="btn" data-act="retry">إعادة المحاولة</button></div></div>`; }).finally(() => { booting = false; }); }
+      return;
+    }
+    if (path === 'done') { root.innerHTML = topbar() + OB.done(); return; }
+    const S = N.session, key = S.role === 'admin' ? 'a' : S.role === 'student' ? 's' : 'p';
     if (area !== key) return go(`#/${key}/${NAV[key][0][0]}`);
-    if (key !== 'a' && !N.student(S.studentId)) { S.studentId = N.childrenOf(S.familyId)[0]?.id; N.persistSession(); }
+    if (key !== 'a' && !N.student(S.studentId)) S.studentId = N.childrenOf(S.familyId)[0]?.id;
+    if (key === 'p' && !S.studentId && page !== 'dash') return go('#/p/dash');
     const items = NAV[key], cur = items.find((i) => i[0] === page) || (page === 'report' && key === 'a' ? ['report', '', '', 'aReport'] : null);
     if (!cur) return go(`#/${key}/${items[0][0]}`);
     root.innerHTML = `${topbar()}<div class="shell"><nav class="side" aria-label="القائمة">${items.map((i) => `<a href="#/${key}/${i[0]}" class="${i[0] === page ? 'on' : ''}" ${i[0] === page ? 'aria-current="page"' : ''}><span class="ic">${i[1]}</span>${i[2]}</a>`).join('')}</nav><main class="main" id="main">${V[cur[3]]()}</main></div>`;
-    window.scrollTo(0, 0);
+  };
+  let lastHash = '';
+  window.addEventListener('hashchange', () => { N.render(); if (location.hash !== lastHash) { window.scrollTo(0, 0); lastHash = location.hash; } });
+  A.retry = () => N.render();
+  A.logout = () => N.confirm('تسجيل الخروج من المنصة؟', () => N.signOut());
+
+  /* حسابي: بيانات الدخول، رمز الربط، تغيير الرقم السري */
+  A.account = () => {
+    const me = N.db.me, parents = N.parentsOf(me.familyId).filter((p) => p.id !== me.id);
+    const info = `<div class="cred-box"><span class="muted small">اسم المستخدم</span><b class="cred big">${E(me.username)}</b></div>
+      ${me.role === 'student' ? `<div class="cred-box"><span class="muted small">رمز الربط لولي أمرك</span><b class="cred big">${E(me.linkCode)}</b></div>
+        <p class="small">${parents.length ? 'مرتبط مع: ' + parents.map((p) => `${E(p.name)} (${E(p.relationship || 'ولي أمر')})`).join('، ') : 'لم يرتبط بك ولي أمر بعد.'}</p>` : ''}
+      ${me.role === 'parent' && parents.length ? `<p class="small">أولياء أمور آخرون في الأسرة: ${parents.map((p) => `${E(p.name)} (${E(p.relationship || '')})`).join('، ')}</p>` : ''}
+      <h3 style="margin-top:12px">تغيير الرقم السري</h3>`;
+    N.modal({
+      title: 'حسابي', body: info, submit: 'تغيير الرقم السري',
+      fields: [{ name: 'old', label: 'الرقم الحالي', type: 'password', dir: 'ltr' }, { name: 'pin', label: 'الرقم الجديد (4 إلى 8 أرقام)', type: 'password', dir: 'ltr' }],
+      onSubmit: (d) => { N.rpc('nafes_change_pin', { p_token: N.token(), p_old: d.old, p_new: d.pin }).then(() => N.toast('تم تغيير الرقم السري ✅')).catch((e) => N.toast(e.message)); },
+    });
   };
 
+  /* النقرات والنماذج */
   document.addEventListener('click', (e) => {
     const el = e.target.closest('[data-act]'); if (!el) return;
     const fn = A[el.dataset.act]; if (fn) { e.preventDefault(); fn({ ...el.dataset }, el); }
   });
-  window.addEventListener('hashchange', N.render);
+  document.addEventListener('submit', async (e) => {
+    const form = e.target.closest('form[data-form]'); if (!form) return;
+    e.preventDefault();
+    const btn = form.querySelector('[type=submit],button:not([type])'), fn = N.F[form.dataset.form];
+    if (!fn || btn?.disabled) return;
+    if (btn) btn.disabled = true;
+    try { await fn(Object.fromEntries(new FormData(form).entries()), form); }
+    catch (err) { const box = form.querySelector('.form-err'); if (box) { box.textContent = err.message; box.hidden = false; } else N.toast(err.message); }
+    finally { if (btn && document.body.contains(btn)) btn.disabled = false; }
+  });
 
-  // تهيئة
   try { const th = localStorage.getItem('nafes_theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.dataset.theme = th; } catch (e) { /* ignore */ }
-  N.load(); restore(); N.render();
+  N.render();
 })();

@@ -51,18 +51,12 @@
     { id: 'champ', icon: '🏆', name: 'بطل نافس', desc: 'مؤشر اجتهاد 85% فأكثر', test: (s) => s.index >= 85 },
   ];
 
-  /* ---------- التخزين ---------- */
-  const KEY = 'nafes_db_v1';
+  /* ---------- الوصول للبيانات (التخزين في sync.js) ---------- */
   N.db = null;
-  N.save = () => { try { localStorage.setItem(KEY, JSON.stringify(N.db)); } catch (e) { console.warn(e); } };
-  N.load = () => {
-    try { const raw = localStorage.getItem(KEY); if (raw) { N.db = JSON.parse(raw); return; } } catch (e) { /* ignore */ }
-    N.db = N.seed(); N.save();
-  };
-  N.resetDemo = () => { N.db = N.seed(); N.save(); };
   N.student = (id) => N.db.students.find((s) => s.id === id);
-  N.family = (id) => N.db.families.find((f) => f.id === id);
   N.childrenOf = (fid) => N.db.students.filter((s) => s.familyId === fid && s.active);
+  N.parentsOf = (fid) => N.db.accounts.filter((a) => a.role === 'parent' && a.familyId === fid);
+  N.accountOf = (sid) => N.db.accounts.find((a) => a.role === 'student' && a.studentId === sid);
 
   /* ---------- الإحصاءات ---------- */
   function activeDates(sid) {
@@ -191,6 +185,7 @@
       support: `يحتاج ${st.name} دعمًا في «${weakest.label}» (${weakest.value}%).`,
       advice: weakest.tip,
     };
-    return { start, end, cur, prev, delta: cur.score - prev.score, tasksDone: tasks.filter((t) => t.done).length, tasksTotal: tasks.length, minutes: logs.reduce((a, l) => a + l.minutes, 0), streak: N.streak(sid), notes, weakest, strongest };
+    const fresh = !!st.createdAt && Date.now() - new Date(st.createdAt).getTime() < 7 * 864e5;
+    return { start, end, cur, prev, fresh, delta: cur.score - prev.score, tasksDone: tasks.filter((t) => t.done).length, tasksTotal: tasks.length, minutes: logs.reduce((a, l) => a + l.minutes, 0), streak: N.streak(sid), notes, weakest, strongest };
   };
 })();

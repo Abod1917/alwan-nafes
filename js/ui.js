@@ -84,5 +84,4 @@
   };
   N.A.delTask = ({ id }) => N.confirm('حذف هذه المهمة؟', () => { N.db.tasks = N.db.tasks.filter((t) => t.id !== id); N.save(); N.render(); });
   N.A.theme = () => { const n = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = n; try { localStorage.setItem('nafes_theme', n); } catch (e) { /* ignore */ } };
-  N.A.logout = () => { N.session = null; sessionStorage.removeItem('nafes_session'); location.hash = '#/login'; };
 })();

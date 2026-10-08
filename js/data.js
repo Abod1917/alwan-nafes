@@ -1,4 +1,4 @@
-/* نافس باجتهاد — البيانات التجريبية وعمليات الحسابات */
+/* نافس باجتهاد — المحتوى الافتراضي، خيارات الأهداف، والخطة المبدئية */
 (function () {
   const N = window.N;
 
@@ -19,78 +19,39 @@
     ['التواصل', 'حين يتعثر الطفل', 'ابدأ بالتعاطف: «واضح أنها صعبة عليك»، ثم اسأل: «وش الجزء اللي ما فهمته؟». حدّد المشكلة قبل البحث عن الحل.'],
   ];
 
-  function rng(seed) { return () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  N.RELATIONS = ['أب', 'أم', 'أخ', 'أخت', 'جد', 'جدة', 'عم', 'عمة', 'خال', 'خالة', 'وصي آخر'];
+  N.STUDY_TARGETS = [[20, '20 دقيقة يوميًا'], [30, '30 دقيقة يوميًا'], [45, '45 دقيقة يوميًا'], [60, 'ساعة يوميًا'], [90, 'ساعة ونصف يوميًا']];
 
-  N.seed = () => {
-    const T = N.today(), r = rng(7);
-    const db = {
-      admin: { username: 'admin', pin: '0000' },
-      settings: { badgesOff: [] },
-      families: [{ id: 'f1', username: 'NAFES1001', pin: '4826', name: 'أبو عبدالله', phone: '966500000000', active: true }],
-      students: [
-        { id: 's1', familyId: 'f1', name: 'عبدالله', grade: 'السادس', avatar: '🦁', targetMin: 60, active: true },
-        { id: 's2', familyId: 'f1', name: 'نورة', grade: 'الرابع', avatar: '🦄', targetMin: 45, active: true },
-      ],
-      tasks: [], exams: [], logs: [], goals: [], participations: [], agreements: {},
-      challenges: [
-        { id: 'c1', title: 'تحدي القراءة', desc: 'اقرأ 15 دقيقة يوميًا لمدة 7 أيام', days: 7, active: true },
-        { id: 'c2', title: 'تحدي البداية المبكرة', desc: 'ابدأ المذاكرة في الوقت المتفق عليه 5 أيام', days: 5, active: true },
-        { id: 'c3', title: 'تحدي الترتيب', desc: 'رتّب حقيبتك ومكتبك كل يوم لمدة 5 أيام', days: 5, active: true },
-      ],
-      content: N.TIPS.map((t, i) => ({ id: 'tip' + i, category: t[0], title: t[1], body: t[2] })),
-    };
-    const subj = ['الرياضيات', 'العلوم', 'اللغة العربية', 'اللغة الإنجليزية', 'القرآن الكريم'];
-    const titles = ['حل تمارين الصفحة', 'مراجعة الدرس', 'كتابة الواجب', 'حفظ ومراجعة', 'قراءة الوحدة'];
-    // عبدالله: مجتهد، سلسلة 12 يوم
-    for (let i = 0; i < 14; i++) {
-      const d = N.addDays(T, -i), active = i <= 11;
-      if (active) db.logs.push({ id: N.uid(), studentId: 's1', date: d, minutes: 55 + Math.floor(r() * 25), focus: r() > 0.3 ? 5 : 4, note: '' });
-      for (let k = 0; k < 2; k++) {
-        const done = active && !(i === 0 && k === 1);
-        const late = done && r() > 0.9;
-        db.tasks.push({ id: N.uid(), studentId: 's1', title: `${titles[(i + k) % 5]}`, subject: subj[(i + k) % 5], date: d, type: 'homework', minutes: 30, done, doneOn: done ? (late ? N.addDays(d, 1) > T ? d : N.addDays(d, 1) : d) : null });
-      }
-    }
-    // نورة: متوسطة
-    for (let i = 0; i < 14; i++) {
-      const d = N.addDays(T, -i), active = i % 2 === 0 && i < 8;
-      if (active) db.logs.push({ id: N.uid(), studentId: 's2', date: d, minutes: 25 + Math.floor(r() * 20), focus: 3, note: '' });
-      for (let k = 0; k < 2; k++) {
-        const done = active && (k === 0 || r() > 0.5);
-        db.tasks.push({ id: N.uid(), studentId: 's2', title: `${titles[(i + k + 2) % 5]}`, subject: subj[(i + k + 1) % 5], date: d, type: 'homework', minutes: 25, done, doneOn: done ? d : null });
-      }
-    }
-    // مهام قادمة
-    [['s1', 'مشروع العلوم: نموذج الخلية', 'العلوم', 2], ['s1', 'حل تمارين الكسور', 'الرياضيات', 1], ['s2', 'قراءة قصة وتلخيصها', 'اللغة العربية', 1], ['s2', 'حفظ سورة الأعلى', 'القرآن الكريم', 3]]
-      .forEach(([sid, title, subject, n]) => db.tasks.push({ id: N.uid(), studentId: sid, title, subject, date: N.addDays(T, n), type: 'homework', minutes: 30, done: false, doneOn: null }));
-    // مهام اليوم
-    db.tasks.filter((t) => t.date === T && t.studentId === 's1').forEach((t, i) => { t.title = i ? 'مراجعة درس الحاسب' : 'حل تمارين الرياضيات'; });
-    // اختبار قريب (يولّد خطة مذاكرة)
-    const ex = { id: 'e1', studentId: 's1', subject: 'الرياضيات', date: N.addDays(T, 5), topics: 'الكسور العشرية، النسبة والتناسب، الهندسة' };
-    db.exams.push(ex);
-    N.db = db; N.generatePlan(ex);
-    // أهداف
-    db.goals.push({ id: N.uid(), studentId: 's1', title: 'قراءة 3 كتب هذا الشهر', target: 3, progress: 2, due: N.addDays(T, 20) }, { id: N.uid(), studentId: 's1', title: 'حفظ جزء عمّ', target: 10, progress: 7, due: N.addDays(T, 30) }, { id: N.uid(), studentId: 's2', title: 'قراءة 5 قصص', target: 5, progress: 2, due: N.addDays(T, 25) });
-    // اتفاق الهمة + تحدٍّ جارٍ
-    db.agreements.s1 = { ...JSON.parse(JSON.stringify(N.DEFAULT_AGREEMENT)), signedStudent: T, signedParent: T };
-    db.participations.push({ id: N.uid(), studentId: 's1', challengeId: 'c1', days: [N.addDays(T, -2), N.addDays(T, -1)], completed: false });
-    return db;
-  };
+  /* خيارات الأهداف: كل خيار يبني هدفًا ومهامًا يومية واقتراح تحدٍّ وفكرة */
+  N.GOAL_OPTIONS = [
+    { k: 'grades', icon: '📈', label: 'رفع درجاتي', goal: ['إنجاز 20 جلسة مذاكرة مركّزة', 20], task: ['جلسة مذاكرة مركّزة 25 دقيقة', 'أخرى', 25], idea: 'ابدأ بالمادة الأصعب حين يكون ذهنك صافيًا، واترك الأسهل لآخر الجلسة.' },
+    { k: 'math', icon: '➗', label: 'التميّز في الرياضيات', goal: ['حل 30 تمرين رياضيات', 30], task: ['حل 5 تمارين رياضيات', 'الرياضيات', 20], idea: 'اكتب خطوات الحل كاملة؛ الأخطاء تظهر في الخطوات لا في الناتج.' },
+    { k: 'reading', icon: '📖', label: 'القراءة اليومية', goal: ['قراءة 4 كتب هذا الشهر', 4], task: ['قراءة 15 دقيقة', 'اللغة العربية', 15], challenge: 'c1', idea: 'اختر كتبًا تحبها أولًا؛ المتعة هي التي تصنع العادة.' },
+    { k: 'quran', icon: '🕌', label: 'حفظ القرآن الكريم', goal: ['حفظ 10 صفحات', 10], task: ['حفظ ومراجعة ورد اليوم', 'القرآن الكريم', 20], idea: 'كرّر المقطع الجديد 5 مرات بعد الفجر، وراجعه قبل النوم.' },
+    { k: 'english', icon: '🔤', label: 'تقوية الإنجليزية', goal: ['تعلّم 50 كلمة إنجليزية جديدة', 50], task: ['تعلّم 5 كلمات إنجليزية واستخدمها في جمل', 'اللغة الإنجليزية', 15], idea: 'استخدم كل كلمة جديدة في جملة عن حياتك اليومية.' },
+    { k: 'science', icon: '🔬', label: 'حب العلوم والتجارب', goal: ['تنفيذ 5 تجارب علمية بسيطة', 5], task: ['مراجعة درس العلوم وتلخيصه', 'العلوم', 20], idea: 'اسأل «لماذا؟» عن كل ظاهرة تراها، وابحث عن الإجابة.' },
+    { k: 'organize', icon: '🗓️', label: 'تنظيم وقتي', goal: ['الالتزام بجدولي 21 يومًا', 21], task: ['تجهيز حقيبة الغد وكتابة مهامه', 'أخرى', 10], challenge: 'c2', idea: 'اكتب مهام الغد قبل النوم؛ تبدأ يومك واضحًا بلا تشتت.' },
+    { k: 'exams', icon: '📝', label: 'الاستعداد للاختبارات', goal: ['إنجاز 10 جلسات مراجعة', 10], task: ['مراجعة درس سابق وحل أسئلته', 'أخرى', 25], idea: 'أضف مواعيد اختباراتك وستُبنى لك خطة مذاكرة تلقائيًا.' },
+  ];
+  N.goalOpt = (k) => N.GOAL_OPTIONS.find((g) => g.k === k);
 
-  /* ---------- عمليات الإدارة ---------- */
-  N.randPin = () => String(1000 + Math.floor(Math.random() * 9000));
-  N.nextUsername = () => {
-    const nums = N.db.families.map((f) => parseInt(f.username.replace(/\D/g, ''), 10)).filter(Boolean);
-    return 'NAFES' + (Math.max(1000, ...nums) + 1);
+  /* الخطة المبدئية: تُبنى مرة واحدة لكل طالب جديد حسب أهدافه المختارة */
+  N.buildStarter = (s) => {
+    const T = N.today();
+    const opts = (s.goals || []).map(N.goalOpt).filter(Boolean).slice(0, 4);
+    if (!opts.length) opts.push(N.goalOpt('grades'), N.goalOpt('organize'));
+    opts.forEach((o) => N.db.goals.push({ id: N.uid(), studentId: s.id, title: o.goal[0], target: o.goal[1], progress: 0, due: N.addDays(T, 30), from: o.k }));
+    if (s.goalNote && s.goalNote.trim()) N.db.goals.push({ id: N.uid(), studentId: s.id, title: s.goalNote.trim().slice(0, 80), target: 10, progress: 0, due: N.addDays(T, 30) });
+    for (let i = 0; i < 7; i++) {
+      [opts[i % opts.length], opts[(i + 1) % opts.length]].filter((o, j, a) => a.indexOf(o) === j).forEach((o) =>
+        N.db.tasks.push({ id: N.uid(), studentId: s.id, title: o.task[0], subject: o.task[1], date: N.addDays(T, i), type: 'habit', minutes: o.task[2], done: false, doneOn: null }));
+    }
+    opts.forEach((o) => { if (o.challenge && N.db.challenges.some((c) => c.id === o.challenge && c.active) && !N.db.participations.some((p) => p.studentId === s.id && p.challengeId === o.challenge)) N.db.participations.push({ id: N.uid(), studentId: s.id, challengeId: o.challenge, days: [], completed: false }); });
+    if (!N.db.agreements[s.id]) N.db.agreements[s.id] = JSON.parse(JSON.stringify(N.DEFAULT_AGREEMENT));
+    s.starterDone = true;
   };
-  N.login = (username, pin) => {
-    const u = String(username || '').trim().toUpperCase(), p = String(pin || '').trim();
-    if (u === N.db.admin.username.toUpperCase() && p === N.db.admin.pin) return { role: 'admin' };
-    const f = N.db.families.find((x) => x.username.toUpperCase() === u && x.pin === p);
-    if (!f) return { error: 'اسم المستخدم أو الرقم السري غير صحيح' };
-    if (!f.active) return { error: 'هذا الحساب معطّل، تواصل مع إدارة الأكاديمية' };
-    return { role: 'family', familyId: f.id };
-  };
+  N.ideasFor = (s) => (s.goals || []).map(N.goalOpt).filter(Boolean).map((o) => ({ icon: o.icon, text: o.idea }));
+
   N.toCSV = (rows) => '﻿' + rows.map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
   N.download = (name, text, type = 'text/csv;charset=utf-8') => {
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove();

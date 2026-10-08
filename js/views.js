@@ -9,24 +9,59 @@
   /* ===== لوحة الطالب ===== */
   V.sDash = () => {
     const s = cur(), ix = N.index(s.id), st = N.streak(s.id), pt = N.points(s.id), t = N.today();
-    const today = N.db.tasks.filter((x) => x.studentId === s.id && x.date === t);
+    const today = N.db.tasks.filter((x) => x.studentId === s.id && x.date === t), ideas = N.ideasFor(s), me = N.db.me;
     const next = N.db.exams.filter((e) => e.studentId === s.id && e.date >= t).sort((a, b) => a.date.localeCompare(b.date))[0];
     return `${header(`أهلًا ${E(s.name)} ${s.avatar}`, `<button class="btn" data-act="logStudy">⏱️ سجّل مذاكرتي</button>`)}
     <div class="card hero">${N.gauge(ix.score, ix.level)}<div><h2>مؤشر اجتهادي هذا الأسبوع</h2><p class="muted">${ix.level.msg}</p><div class="row"><span class="chip">🔥 سلسلة ${N.days(st)}</span><span class="chip">⭐ ${pt.total} نقطة · ${pt.level.name}</span></div><div style="margin-top:12px">${N.dots(s.id)}</div></div></div>
     ${next ? `<div class="card" style="margin-top:16px"><b>📝 اختبار ${E(next.subject)} بعد ${N.days(N.diffDays(next.date, t))}</b> <span class="muted">— خطتك جاهزة في المهام</span></div>` : ''}
-    <div class="card"><div class="row between"><h2>مهام اليوم</h2><button class="btn sm ghost" data-act="addTask">+ مهمة</button></div>${today.length ? today.map((x) => N.taskRow(x, { canDel: false })).join('') : N.empty('🎈', 'ما عندك مهام اليوم، استمتع بوقتك!')}</div>`;
+    <div class="card"><div class="row between"><h2>مهام اليوم</h2><button class="btn sm ghost" data-act="addTask">+ مهمة</button></div>${today.length ? today.map((x) => N.taskRow(x, { canDel: false })).join('') : N.empty('🎈', 'ما عندك مهام اليوم، استمتع بوقتك!')}</div>
+    ${ideas.length ? `<div class="card"><h2>💡 أفكار لك</h2>${ideas.map((i) => `<div class="note n3">${i.icon} ${E(i.text)}</div>`).join('')}</div>` : ''}
+    ${!N.parentsOf(s.familyId).length && me.linkCode ? `<div class="card"><h2>🔗 اربط ولي أمرك</h2><p class="muted">أعطِ ولي أمرك هذا الرمز ليتابع اجتهادك ويشجعك:</p><b class="cred big">${E(me.linkCode)}</b></div>` : ''}`;
   };
 
   /* ===== لوحة ولي الأمر ===== */
   V.pDash = () => {
     const kids = N.childrenOf(N.session.familyId), t = N.today();
-    const s = cur(), ix = N.index(s.id), r = N.report(s.id);
+    const famCard = `<div class="card"><div class="row between"><h2>👨‍👩‍👧 أبنائي</h2><div class="row"><button class="btn sm ghost" data-act="linkChild">🔗 ربط ابن مسجّل</button><button class="btn sm" data-act="addChild">+ إضافة ابن</button></div></div>
+      ${kids.map((k) => { const ac = N.accountOf(k.id); return `<div class="task"><span style="font-size:1.6rem">${k.avatar}</span><div class="tt"><b>${E(k.name)}</b><small class="muted">${E([k.grade && 'الصف ' + k.grade, k.age && k.age + ' سنة', k.school].filter(Boolean).join(' · '))}</small></div>${ac ? `<span class="small">دخوله: <span class="cred">${E(ac.username)}</span></span>` : `<button class="btn sm ghost" data-act="childAcc" data-id="${k.id}">إنشاء حساب دخول له</button>`}</div>`; }).join('') || N.empty('🧒', 'أضف ابنك أو اربطه برمز الربط من حسابه')}</div>`;
+    const s = cur();
+    if (!s) return `${header('لوحة ولي الأمر')}${famCard}`;
+    const ix = N.index(s.id), r = N.report(s.id);
     const late = N.db.tasks.filter((x) => x.studentId === s.id && !x.done && x.date < t).length;
     const upcoming = N.db.exams.filter((e) => e.studentId === s.id && e.date >= t).sort((a, b) => a.date.localeCompare(b.date));
     return `${header(`لوحة ولي الأمر`, `<button class="btn ghost" data-act="addExam">📝 اختبار جديد</button><button class="btn" data-act="addTask">+ مهمة</button>`)}
     <div class="grid g3" style="margin-bottom:16px">${kids.map((k) => { const i = N.index(k.id); return `<button class="card ${k.id === s.id ? '' : ''}" style="text-align:start;cursor:pointer;${k.id === s.id ? 'border:2px solid var(--primary)' : ''}" data-act="pick" data-id="${k.id}"><div class="row"><span style="font-size:2rem">${k.avatar}</span><div><b>${E(k.name)}</b><div class="muted small">الصف ${E(k.grade)}</div></div></div><div style="margin-top:8px"><b>${i.score}%</b> <span class="lvl ${i.level.cls}">${i.level.icon} ${i.level.name}</span></div></button>`; }).join('')}</div>
-    <div class="card hero">${N.gauge(ix.score, ix.level)}<div><h2>${E(s.name)} — هذا الأسبوع</h2><div class="row"><span class="chip ${r.delta >= 0 ? 'ok' : 'bad'}">${r.delta >= 0 ? '▲' : '▼'} ${Math.abs(r.delta)} عن الأسبوع الماضي</span><span class="chip">🔥 ${N.days(r.streak)}</span><span class="chip">✅ ${r.tasksDone}/${r.tasksTotal} مهمة</span><span class="chip">⏱️ ${r.minutes} دقيقة</span>${late ? `<span class="chip bad">${late} مهام متأخرة</span>` : ''}</div><div class="note n3" style="margin-top:12px">💡 ${E(r.notes.advice)}</div><a class="btn sm" href="#/p/report">عرض التقرير الأسبوعي</a></div></div>
-    <div class="grid g2"><div class="card"><h2>مكوّنات المؤشر</h2>${N.parts(ix.parts)}</div><div class="card"><h2>الاختبارات القادمة</h2>${upcoming.length ? upcoming.map((e) => `<div class="task"><div class="tt"><b>${E(e.subject)}</b><small class="muted">${N.dateLong(e.date)} · بعد ${N.days(N.diffDays(e.date, t))}${e.topics ? '<br>' + E(e.topics) : ''}</small></div><button class="icon-btn" data-act="delExam" data-id="${e.id}" aria-label="حذف الاختبار">🗑️</button></div>`).join('') : N.empty('📝', 'لا توجد اختبارات قادمة')}</div></div>`;
+    <div class="card hero">${N.gauge(ix.score, ix.level)}<div><h2>${E(s.name)} — هذا الأسبوع</h2><div class="row">${r.fresh ? '<span class="chip">🌱 الأسبوع الأول</span>' : `<span class="chip ${r.delta >= 0 ? 'ok' : 'bad'}">${r.delta >= 0 ? '▲' : '▼'} ${Math.abs(r.delta)} عن الأسبوع الماضي</span>`}<span class="chip">🔥 ${N.days(r.streak)}</span><span class="chip">✅ ${r.tasksDone}/${r.tasksTotal} مهمة</span><span class="chip">⏱️ ${r.minutes} دقيقة</span>${late ? `<span class="chip bad">${late} مهام متأخرة</span>` : ''}</div><div class="note n3" style="margin-top:12px">💡 ${E(r.notes.advice)}</div><a class="btn sm" href="#/p/report">عرض التقرير الأسبوعي</a></div></div>
+    <div class="grid g2"><div class="card"><h2>مكوّنات المؤشر</h2>${N.parts(ix.parts)}</div><div class="card"><h2>الاختبارات القادمة</h2>${upcoming.length ? upcoming.map((e) => `<div class="task"><div class="tt"><b>${E(e.subject)}</b><small class="muted">${N.dateLong(e.date)} · بعد ${N.days(N.diffDays(e.date, t))}${e.topics ? '<br>' + E(e.topics) : ''}</small></div><button class="icon-btn" data-act="delExam" data-id="${e.id}" aria-label="حذف الاختبار">🗑️</button></div>`).join('') : N.empty('📝', 'لا توجد اختبارات قادمة')}</div></div>
+    ${famCard}`;
+  };
+  const goalOpts = () => N.GOAL_OPTIONS.map((o) => [o.k, `${o.icon} ${o.label}`]);
+  A.addChild = () => N.modal({
+    title: 'إضافة ابن/ابنة',
+    fields: [{ name: 'name', label: 'الاسم' }, { name: 'age', label: 'العمر', type: 'number', min: 5, max: 19, value: 10 }, { name: 'grade', label: 'الصف', type: 'select', options: N.GRADES.map((g) => [g, g]), value: 'الرابع' }, { name: 'school', label: 'المدرسة', required: false }, { name: 'goal', label: 'أهم هدف له', type: 'select', options: goalOpts() }],
+    onSubmit: (d) => {
+      const k = { id: 'st_' + N.uid(), familyId: N.session.familyId, name: d.name.trim(), age: +d.age, grade: d.grade, school: d.school.trim(), goals: [d.goal], goalNote: '', avatar: '🦁', targetMin: 45, active: true, createdAt: new Date().toISOString() };
+      N.db.students.push(k); N.buildStarter(k); N.session.studentId = k.id; N.persistSession(); N.save(); N.toast(`تمت إضافة ${k.name} وبُنيت خطته الأولى ✨`); N.render();
+    },
+  });
+  A.linkChild = () => N.modal({
+    title: 'ربط ابن مسجّل', body: '<p class="muted small">اطلب من ابنك رمز الربط من حسابه (👤 حسابي).</p>',
+    fields: [{ name: 'code', label: 'رمز الربط', dir: 'ltr' }],
+    onSubmit: (d) => { N.flush().then(() => N.rpc('nafes_link', { p_token: N.token(), p_code: d.code })).then(async (r) => { await N.loadRemote(); N.toast(`تم الربط مع ${r.name || 'ابنك'} ✅`); N.render(); }).catch((e) => N.toast(e.message)); },
+  });
+  A.childAcc = ({ id }) => {
+    const k = N.student(id);
+    N.modal({
+      title: `حساب دخول لـ ${k.name}`, body: '<p class="muted small">يدخل به ابنك من جواله ليرى مهامه وأهدافه ويسجّل إنجازه.</p>',
+      fields: [{ name: 'pin', label: 'اختر له رقمًا سريًا (4 إلى 8 أرقام)', dir: 'ltr' }],
+      onSubmit: (d) => {
+        if (!/^\d{4,8}$/.test(d.pin)) { N.toast('الرقم السري من 4 إلى 8 أرقام'); return false; }
+        N.flush().then(() => N.rpc('nafes_child_account', { p_token: N.token(), p_student: id, p_pin: d.pin })).then(async (r) => {
+          await N.loadRemote(); N.render();
+          N.modal({ title: 'تم إنشاء الحساب 🎉', body: `<div class="cred-box"><span class="muted small">اسم المستخدم</span><b class="cred big">${E(r.username)}</b></div><div class="cred-box"><span class="muted small">الرقم السري</span><b class="cred big">${E(d.pin)}</b></div><p class="small">احفظها وأعطها لـ ${E(k.name)}.</p>`, submit: 'تم', onSubmit: () => {} });
+        }).catch((e) => N.toast(e.message));
+      },
+    });
   };
   A.pick = ({ id }) => { N.session.studentId = id; N.persistSession(); N.render(); };
   A.addTask = () => N.addTask(N.session.studentId, N.today(), N.render);
@@ -121,20 +156,20 @@
 
   /* ===== التقرير الأسبوعي ===== */
   V.report = () => {
-    const s = cur(), r = N.report(s.id), fam = N.family(s.familyId);
+    const s = cur(), r = N.report(s.id), pars = N.parentsOf(s.familyId);
     return `${header('التقرير الأسبوعي', `<button class="btn" data-act="print">🖨️ حفظ PDF / طباعة</button><button class="btn wa" data-act="wa">مشاركة واتساب</button>`)}
     <div class="sheet"><div class="sheet-h">${N.logo('nafes')}<div style="text-align:end">${N.logo('alwan')}</div></div><div class="stripe"></div>
     <h2>تقرير الاجتهاد الأسبوعي — ${E(s.name)}</h2><p class="muted">الصف ${E(s.grade)} · من ${N.dateLong(r.start)} إلى ${N.dateLong(r.end)}</p>
-    <div class="hero" style="margin:14px 0">${N.gauge(r.cur.score, r.cur.level)}<div class="grid g2"><div class="stat"><b>${r.tasksDone}/${r.tasksTotal}</b><span>مهام منجزة</span></div><div class="stat"><b>${r.minutes}</b><span>دقيقة مذاكرة</span></div><div class="stat"><b>${r.streak}</b><span>${r.streak === 1 ? 'يوم' : 'أيام'} سلسلة</span></div><div class="stat"><b>${r.delta >= 0 ? '▲' : '▼'} ${Math.abs(r.delta)}</b><span>عن الأسبوع الماضي</span></div></div></div>
+    <div class="hero" style="margin:14px 0">${N.gauge(r.cur.score, r.cur.level)}<div class="grid g2"><div class="stat"><b>${r.tasksDone}/${r.tasksTotal}</b><span>مهام منجزة</span></div><div class="stat"><b>${r.minutes}</b><span>دقيقة مذاكرة</span></div><div class="stat"><b>${r.streak}</b><span>${r.streak === 1 ? 'يوم' : 'أيام'} سلسلة</span></div><div class="stat">${r.fresh ? '<b>🌱</b><span>الأسبوع الأول</span>' : `<b>${r.delta >= 0 ? '▲' : '▼'} ${Math.abs(r.delta)}</b><span>عن الأسبوع الماضي</span>`}</div></div></div>
     <h3>تفاصيل المؤشر</h3>${N.parts(r.cur.parts)}
     <div class="note n3"><b>⭐ أبرز تحسّن:</b> ${E(r.notes.improved)}</div><div class="note n2"><b>🤝 يحتاج دعمًا:</b> ${E(r.notes.support)}</div><div class="note"><b>💡 توصية:</b> ${E(r.notes.advice)}</div>
-    <p class="muted small center" style="margin-top:16px">نافس بهمتك — أكاديمية ألوان${fam ? ' · ' + E(fam.name) : ''}</p></div>`;
+    <p class="muted small center" style="margin-top:16px">نافس بهمتك — أكاديمية ألوان${pars.length ? ' · ' + pars.map((p) => E(p.name)).join('، ') : ''}</p></div>`;
   };
   A.print = () => window.print();
   A.wa = () => {
-    const s = cur(), r = N.report(s.id), fam = N.family(s.familyId);
+    const s = cur(), r = N.report(s.id), phone = N.parentsOf(s.familyId).find((p) => p.phone)?.phone;
     const txt = `📊 تقرير نافس الأسبوعي — ${s.name}\nمؤشر الاجتهاد: ${r.cur.score}% ${r.cur.level.icon} ${r.cur.level.name}\n✅ المهام: ${r.tasksDone}/${r.tasksTotal}\n⏱️ المذاكرة: ${r.minutes} دقيقة\n🔥 السلسلة: ${r.streak} يوم\n\n⭐ ${r.notes.improved}\n🤝 ${r.notes.support}\n💡 ${r.notes.advice}\n\nأكاديمية ألوان — نافس بهمتك`;
-    window.open(`https://wa.me/${(fam?.phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(txt)}`, '_blank', 'noopener');
+    window.open(`https://wa.me/${(phone || '').replace(/\D/g, '')}?text=${encodeURIComponent(txt)}`, '_blank', 'noopener');
   };
 
   /* ===== معك في التربية ===== */
