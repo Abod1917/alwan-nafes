@@ -6,6 +6,8 @@
   let st = { step: 1, data: { goals: [], avatar: '🦁', targetMin: 45, hasChild: '' } };
   const reset = () => { st = { step: 1, data: { goals: [], avatar: '🦁', targetMin: 45, hasChild: '' } }; };
   const D = () => st.data;
+  const last = () => { try { return JSON.parse(localStorage.getItem('nafes_last')) || null; } catch (e) { return null; } };
+  const roleName = { student: 'طالب', parent: 'ولي أمر', admin: 'الإدارة' };
 
   const wrap = (inner, wide) => `<div class="login-wrap"><div class="card login" style="${wide ? 'width:min(560px,100%)' : ''}">${inner}</div></div>`;
   const logos = `<div class="logos">${N.logo('nafes')}${N.logo('alwan')}</div>`;
@@ -20,13 +22,14 @@
 
   /* ===== البداية ===== */
   OB.welcome = () => { reset(); return wrap(`${logos}<h1>نافس باجتهاد</h1><p class="muted">منصة أكاديمية ألوان لبناء عادة الاجتهاد عند أبنائنا</p>
+    ${last() ? `<a class="role-btn back-card" href="#/login"><span class="av">👋</span><div><b>أهلًا بعودتك ${E(last().name)}</b><div class="muted small">ادخل لصفحة ${roleName[last().role] || ''} · <span class="cred">${E(last().username)}</span></div></div></a><p class="muted small" style="margin:14px 0 6px">أو أنشئ حسابًا جديدًا:</p>` : ''}
     <div class="who"><a class="role-btn" href="#/join/student"><span class="av">🧒</span><div><b>أنا طالب</b><div class="muted small">أبني أهدافي وأتابع اجتهادي</div></div></a>
     <a class="role-btn" href="#/join/parent"><span class="av">👨‍👩‍👧</span><div><b>أنا ولي أمر</b><div class="muted small">أتابع ابني وأدعمه</div></div></a></div>
     <p style="margin-top:18px">عندك حساب؟ <a href="#/login"><b>تسجيل الدخول</b></a></p>`); };
 
   /* ===== الدخول ===== */
   OB.login = () => wrap(`${logos}<h1>تسجيل الدخول</h1><form data-form="login" style="text-align:start">
-    ${field('اسم المستخدم', `<input name="u" autocomplete="username" dir="ltr" placeholder="NAFES1005" required>`)}
+    ${field('اسم المستخدم', `<input name="u" autocomplete="username" dir="ltr" placeholder="NAFES1005" value="${E(last()?.username || '')}" required>`)}
     ${field('الرقم السري', `<input name="p" type="password" inputmode="numeric" autocomplete="current-password" dir="ltr" required>`)}
     ${err}<button class="btn" style="width:100%">دخول</button></form><p class="small" style="margin-top:14px">جديد؟ <a href="#/welcome">أنشئ حسابك</a></p>`);
   N.F.login = async (d, form) => {

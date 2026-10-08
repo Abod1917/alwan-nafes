@@ -22,6 +22,7 @@
   /* بعد الدخول/التسجيل: تحميل البيانات وبناء الخطة المبدئية للطلاب الجدد */
   N.start = async (target) => {
     const db = await N.loadRemote(), me = db.me;
+    try { localStorage.setItem('nafes_last', JSON.stringify({ username: me.username, name: me.name, role: me.role })); } catch (e) { /* ignore */ }
     let pick = null; try { pick = sessionStorage.getItem('nafes_pick'); } catch (e) { /* ignore */ }
     const kids = N.childrenOf(me.familyId);
     N.session = { role: me.role, familyId: me.familyId, studentId: me.role === 'student' ? me.studentId : (kids.find((k) => k.id === pick) || kids[0])?.id };
@@ -54,6 +55,15 @@
     if (area !== key) return go(`#/${key}/${NAV[key][0][0]}`);
     if (key !== 'a' && !N.student(S.studentId)) S.studentId = N.childrenOf(S.familyId)[0]?.id;
     if (key === 'p' && !S.studentId && page !== 'dash') return go('#/p/dash');
+    if (key === 'a' && page === 'view') {
+      const st = N.student(S.studentId); if (!st) return go('#/a/people');
+      const sub = path.split('/')[2] || 'dash', item = NAV.p.find((i) => i[0] === sub) || NAV.p[0];
+      const pars = N.parentsOf(st.familyId).map((x) => x.name).join('، ');
+      const tabs = NAV.p.map((i) => `<a href="#/a/view/${i[0]}" class="${i === item ? 'on' : ''}">${i[1]} ${i[2]}</a>`).join('');
+      root.innerHTML = `${topbar()}<div class="shell"><nav class="side" aria-label="القائمة">${NAV.a.map((i) => `<a href="#/a/${i[0]}"><span class="ic">${i[1]}</span>${i[2]}</a>`).join('')}</nav><main class="main" id="main">
+        <div class="viewas no-print"><div class="row between"><b>👁️ تعرض صفحات ${E(st.name)}${pars ? ' — ولي الأمر: ' + E(pars) : ''}</b><a class="btn sm ghost" href="#/a/people">→ رجوع للمسجلين</a></div><div class="tabs viewtabs">${tabs}</div></div>${V[item[3]]()}</main></div>`;
+      return;
+    }
     const items = NAV[key], cur = items.find((i) => i[0] === page) || (page === 'report' && key === 'a' ? ['report', '', '', 'aReport'] : null);
     if (!cur) return go(`#/${key}/${items[0][0]}`);
     root.innerHTML = `${topbar()}<div class="shell"><nav class="side" aria-label="القائمة">${items.map((i) => `<a href="#/${key}/${i[0]}" class="${i[0] === page ? 'on' : ''}" ${i[0] === page ? 'aria-current="page"' : ''}><span class="ic">${i[1]}</span>${i[2]}</a>`).join('')}</nav><main class="main" id="main">${V[cur[3]]()}</main></div>`;
