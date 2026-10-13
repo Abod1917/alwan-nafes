@@ -1,0 +1,14 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>التقارير والعقود</title>
+<link rel="stylesheet" href="style.css"></head><body><header></header><main>
+
+<h2>٣. تقرير خماسي الأثر</h2>
+<p class="muted">أدخل قيمة كل مؤشر لكل سنة، ويُصدَّر الجدول إلى Excel لإدراجه في التقرير.</p><div id="imp"></div>
+<h2>٥. متابعة عقود البيئات</h2>
+<p class="muted">الصف يُلوَّن بالأصفر قبل انتهاء العقد بـ٦٠ يوماً أو أقل، وبالأحمر إذا انتهى.</p><div id="ct"></div>
+</main><footer>البيانات تُحفظ في هذا المتصفح فقط · استخدم «تصدير CSV» لمشاركتها</footer>
+<script src="app.js"></script><script>nav('reports.html');
+const y=["السنة ١","السنة ٢","السنة ٣","السنة ٤","السنة ٥"];
+editableTable(document.getElementById("imp"),"impact5",[{key:"m",label:"مؤشر الأثر"},...y.map((l,i)=>({key:"y"+i,label:l})),{key:"n",label:"ملاحظات",type:"area"}],["عدد الطلاب المستفيدين","عدد المعلمين","عدد الحلقات والبيئات","الموارد المالية المحصَّلة","عدد الشركاء والداعمين"].map(m=>({m})));
+const days=d=>d?Math.round((new Date(d)-new Date(new Date().toDateString()))/864e5):null;
+editableTable(document.getElementById("ct"),"contracts",[{key:"e",label:"البيئة"},{key:"p",label:"الجهة المتعاقدة"},{key:"s",label:"بداية العقد",type:"date"},{key:"f",label:"نهاية العقد",type:"date"},{key:"v",label:"القيمة",type:"number"},{key:"st",label:"الحالة",type:"select",options:["ساري","قيد التجديد","منتهٍ","موقوف"]},{key:"n",label:"ملاحظات",type:"area"}],[{}],{rowClass:r=>{const d=days(r.f);return d===null||r.st==="منتهٍ"?"":d<0?"bad":d<=60?"warn":""}});</script></body></html>
