@@ -1,13 +1,12 @@
-:root{--bg:#f6f4ee;--card:#fff;--ink:#1f2a26;--muted:#66726c;--brand:#1f6f54;--brand-d:#14523e;--line:#e1ddd0;--warn:#b45309;--bad:#b42318;--ok:#1f6f54}
-@media (prefers-color-scheme:dark){:root{--bg:#121816;--card:#1a2320;--ink:#e8efeb;--muted:#9aa8a1;--brand:#4fb88f;--brand-d:#3a9272;--line:#2c3a35;--warn:#f0a43a;--bad:#f27a6e;--ok:#4fb88f}}
+/* التخطيط فقط — كل الألوان من theme.css */
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"Tajawal","Segoe UI",Tahoma,sans-serif;line-height:1.8}
-header{background:var(--brand);color:#fff;padding:14px 16px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.8}
+header{background:var(--brand);color:var(--on-brand);padding:14px 16px}
 header .in,main{max-width:1100px;margin:auto}
 header h1{margin:0;font-size:1.25rem}
 nav{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-nav a{color:#fff;text-decoration:none;padding:3px 12px;border-radius:99px;background:rgba(255,255,255,.15);font-size:.9rem}
-nav a.on{background:#fff;color:var(--brand-d)}
+nav a{color:var(--on-brand);text-decoration:none;padding:3px 12px;border-radius:99px;background:var(--nav-chip);font-size:.9rem}
+nav a.on{background:var(--on-brand);color:var(--brand-d)}
 main{padding:16px}
 h2{color:var(--brand);margin:28px 0 8px;font-size:1.25rem}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:10px 0}
@@ -19,12 +18,12 @@ h2{color:var(--brand);margin:28px 0 8px;font-size:1.25rem}
 .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
 table{border-collapse:collapse;width:100%;min-width:640px}
 th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
-th{background:rgba(31,111,84,.08);font-size:.85rem;white-space:nowrap}
+th{background:var(--head);font-size:.85rem;white-space:nowrap}
 td input,td select,td textarea{width:100%;font:inherit;color:inherit;background:transparent;border:1px solid transparent;border-radius:6px;padding:3px 5px}
 td input:hover,td select:hover,td textarea:hover,td input:focus,td select:focus,td textarea:focus{border-color:var(--line);background:var(--bg);outline:none}
 td textarea{resize:vertical;min-height:2.2em}
-tr.warn{background:rgba(180,83,9,.1)}tr.bad{background:rgba(180,35,24,.1)}
-button{font:inherit;cursor:pointer;border:1px solid var(--brand);background:var(--brand);color:#fff;border-radius:8px;padding:4px 14px}
+tr.warn{background:var(--warn-bg)}tr.bad{background:var(--bad-bg)}
+button{font:inherit;cursor:pointer;border:1px solid var(--brand);background:var(--brand);color:var(--on-brand);border-radius:8px;padding:4px 14px}
 button.ghost{background:transparent;color:var(--brand)}
 button.x{background:transparent;border:0;color:var(--bad);padding:0 6px}
 .bar{display:flex;gap:8px;margin:8px 0;flex-wrap:wrap}
@@ -35,3 +34,8 @@ summary{cursor:pointer;font-weight:700;color:var(--brand-d)}
 li{margin:4px 0}
 footer{text-align:center;color:var(--muted);font-size:.8rem;padding:24px 16px}
 @media print{header nav,.bar,button{display:none}}
+
+#login{max-width:340px;margin:60px auto}
+#login input{width:100%;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;margin:4px 0}
+.err{color:var(--bad);min-height:1.5em}
+.who{float:left;font-size:.8rem;opacity:.9}.who button{padding:0 8px;margin-right:6px;background:transparent;border-color:var(--on-brand);color:var(--on-brand)}
