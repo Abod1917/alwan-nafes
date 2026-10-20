@@ -1,0 +1,11 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>المشاريع والملف التعريفي</title>
+<link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="style.css"></head><body><header></header><main>
+
+<h2>٤. مشاريع تحتاج تسويقاً (الشايع)</h2><div id="pr"></div>
+<h2>٦. الملف التعريفي للمشكاة</h2>
+<div class="card"><b>أقسام الملف (علّم ما اكتمل)</b><div id="prof"></div></div>
+</main><footer>البيانات مشتركة بين أعضاء اللجنة وتُحفظ تلقائياً · «تصدير CSV» لاستخراجها</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="app.js"></script><script>start('projects.html',async()=>{
+await editableTable(document.getElementById("pr"),"mkt-projects",[{key:"n",label:"المشروع"},{key:"d",label:"الوصف",type:"area"},{key:"b",label:"التكلفة المطلوبة",type:"number"},{key:"c",label:"المبلغ المتوفر",type:"number"},{key:"a",label:"الفئة المستهدفة للتسويق"},{key:"o",label:"المسؤول"},{key:"s",label:"الحالة",type:"select",options:["يحتاج مادة تسويقية","جارٍ التسويق","ممول جزئياً","ممول"]}],[{}]);
+await checklist(document.getElementById("prof"),"profile",["من نحن: الرسالة والرؤية والقيم","نبذة تاريخية وأبرز المحطات","البرامج والخدمات","الإحصاءات وأرقام الأثر","الحوكمة والهيكل والشراكات","قصص نجاح وشهادات","فرص الدعم والمشاريع المطروحة","طرق التبرع والتواصل"]);})</script></body></html>

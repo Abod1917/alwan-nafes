@@ -1,0 +1,11 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>جداول أكتوبر</title>
+<link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="style.css"></head><body><header></header><main>
+
+<h2>٧. جدول زيارات أكتوبر (متطلبات أشخاص الأوقاف)</h2><div id="v"></div>
+<h2>٨. جدول الجهات — أكتوبر</h2><div id="e"></div>
+</main><footer>البيانات مشتركة بين أعضاء اللجنة وتُحفظ تلقائياً · «تصدير CSV» لاستخراجها</footer>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="config.js"></script><script src="app.js"></script><script>start('october.html',async()=>{
+const st=["مخطط","تم التأكيد","تمت","مؤجلة","ملغاة"];
+await editableTable(document.getElementById("v"),"oct-visits",[{key:"d",label:"التاريخ",type:"date"},{key:"p",label:"الشخص"},{key:"w",label:"جهة الوقف"},{key:"r",label:"المتطلبات",type:"area"},{key:"o",label:"المسؤول"},{key:"s",label:"الحالة",type:"select",options:st},{key:"n",label:"ملاحظات",type:"area"}],[{}]);
+await editableTable(document.getElementById("e"),"oct-entities",[{key:"d",label:"التاريخ",type:"date"},{key:"e",label:"الجهة"},{key:"t",label:"الغرض"},{key:"c",label:"جهة الاتصال"},{key:"o",label:"المسؤول"},{key:"s",label:"الحالة",type:"select",options:st},{key:"n",label:"ملاحظات",type:"area"}],[{}]);})</script></body></html>
